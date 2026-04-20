@@ -1,5 +1,5 @@
 from flask import Flask, Response
-import requests
+import subprocess
 
 app = Flask(__name__)
 
@@ -8,20 +8,28 @@ STREAM_URL = "https://live.amperwave.net/direct/audacy-wscramaac-imc"
 
 @app.route("/")
 def home():
-    return "WSCR relay running"
+    return "WSCR MP3 relay running"
 
-@app.route("/wscr.aac")
+@app.route("/wscr.mp3")
 def stream():
-    r = requests.get(STREAM_URL, stream=True)
-
-    def generate():
-        for chunk in r.iter_content(chunk_size=4096):
-            if chunk:
-                yield chunk
+    process = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-i", STREAM_URL,      # input AAC stream
+            "-f", "mp3",           # output format
+            "-ab", "128k",         # bitrate
+            "-acodec", "libmp3lame",
+            "-content_type", "audio/mpeg",
+            "-"
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        bufsize=10**8
+    )
 
     return Response(
-        generate(),
-        content_type="audio/aac",
+        process.stdout,
+        content_type="audio/mpeg",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive"
